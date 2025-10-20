@@ -151,3 +151,37 @@ Vec2 proyeccion_perspectiva(Vec3 punto, float fovf){
 
 	return p;
 }
+
+Mat4 mat4_matriz_proyeccion(float fov, float aspect, float znear, float zfar){
+	// Regresa la matriz de proyeccion
+	//
+	// [(h/w)*1/tan(fov/2),  0  ,  0  ,  0  ]
+	// [  0  ,  1/tan(fov/2)  ,  0  ,  0  ]
+	// [  0  ,  0  ,zf/(zf-zn),(-zf*zn)/(zf-zn)]
+	// [  0  ,  0  ,  1  ,  0  ]
+	//
+	// aspect = (h/w) monitor normal o (w/h) celulares donde la altura es mayor a lo largo
+	
+	Mat4 p = {0};
+	float inv_ang = 1 / tan(fov / 2);
+
+	p.data[0] = aspect * inv_ang;
+	p.data[5] = inv_ang;
+	p.data[10] = zfar / (zfar - znear);
+	p.data[11] = (-zfar * znear) / (zfar - znear);
+	p.data[14] = 1.f;
+
+	return p;
+}
+
+Vec4 proyeccion(Mat4 *mat, Vec4 p){
+	Vec4 r = mat4_dot_vec4(mat, &p);
+
+	if(r.unpack.w != 0.0){
+		r.unpack.x /= r.unpack.w;
+		r.unpack.y /= r.unpack.w;
+		r.unpack.z /= r.unpack.w;
+	}
+
+	return r;
+}

@@ -2,6 +2,8 @@
 
 #include "vectores.h"
 
+#include <math.h>
+
 typedef struct _mat4{
     float data[4 * 4];
 }Mat4;
@@ -24,3 +26,7 @@ void mat4_push_proyeccion_perspectiva(Mat4 *matriz, float fovf);
 
 Vec2 proyeccion_ortografica(Vec3 punto, float fovf);
 Vec2 proyeccion_perspectiva(Vec3 punto, float fovf);
+Vec4 proyeccion(Mat4 *mat, Vec4 p);
+
+Mat4 mat4_matriz_proyeccion(float fov, float aspect, float znear, float zfar);
+

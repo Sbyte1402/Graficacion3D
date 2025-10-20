@@ -1,7 +1,6 @@
 #include "render.h"
-#include "math/lerp.h"
 #include "draw/draw.h"
-#include "draw/linea.h"
+#include "global.h"
 #include "math/matrix.h"
 #include "draw/figuras.h"
 #include "math/vectores.h"
@@ -39,7 +38,7 @@ void transformar(void){
 			cara_vertice[2] = estadosrender.meshes[m].vertices[punto_cara.c - 1];
 
 			Triangulo triangulo_proyectado;
-
+			Vec3 vertices_transformados[3];
 			// Por cada vertice
 			for(int j = 0; j < 3; j++){
 				Vec3 punto = cara_vertice[j];
@@ -51,22 +50,40 @@ void transformar(void){
 				// Rotamos
 				mat4_push_rotar(&mt, estadosrender.meshes[m].rotacion);
 				// Trasladamos
-				mat4_push_traslado(&mt, camara);
+				mat4_push_traslado(&mt, estadosrender.meshes[m].traslado);
 
 				Vec4 p = {{punto.unpack.x, punto.unpack.y, punto.unpack.z, 1.f}};
 
 				p = mat4_dot_vec4(&mt, &p);
 				punto = vec4_to_vec3(&p);
-				Vec2 punto_proyectado = proyeccion_perspectiva(punto, fovf);
-
-				// Centrar o no?
-				punto_proyectado.unpack.x += estadosrender.w_width / 2.f;
-				punto_proyectado.unpack.y += estadosrender.w_height / 2.f;
-
-				// generar triangulo
-				triangulo_proyectado.pos[j] = punto_proyectado;
+				vertices_transformados[j] = punto;
 			}
-			//cubo_triangulos[i] = triangulo_proyectado;
+
+			// Back-face culling
+			if(!back_face_culling(camara, vertices_transformados))
+				continue;
+
+			for(int j = 0; j < 3; ++j){
+				Vec4 pp = {{vertices_transformados[j].unpack.x, 
+					    vertices_transformados[j].unpack.y, 
+					    vertices_transformados[j].unpack.z, 
+					    1.f}};
+
+				Mat4 PM = mat4_matriz_proyeccion(fovf, estadosrender.w_height / (float)estadosrender.w_width, 1.f, 100.f);
+				Vec4 punto_proyectado = proyeccion(&PM, pp);
+
+				// Escala ya que los puntos estan entre 0-1
+				punto_proyectado.unpack.y *= estadosrender.w_height / 2.f;
+				punto_proyectado.unpack.x *= estadosrender.w_width / 2.f;
+
+				// Centrar
+				punto_proyectado.unpack.y += estadosrender.w_height / 2.f;
+				punto_proyectado.unpack.x += estadosrender.w_width / 2.f;
+
+				// Generar triangulos
+				triangulo_proyectado.pos[j].unpack.x = punto_proyectado.unpack.x;
+				triangulo_proyectado.pos[j].unpack.y = punto_proyectado.unpack.y;
+			}
 			pushto_array(estadosrender.meshes[m].triangulos, triangulo_proyectado);
 		}
 	}
@@ -134,16 +151,18 @@ void _Init(){
 	camara.unpack.z = -5.f;
 
 	// Cargar mesh
-	Mesh cubo = loadMesh("assets/iphone.obj", VERTICES | INDICES);
+	Mesh cubo = loadMesh("assets/cube.obj", VERTICES | INDICES);
 
 	pushto_array(estadosrender.meshes, cubo);
+
+	estadosrender.meshes[0].traslado.unpack.z = 5.f;
 
 	estadosrender.meshes[0].rotacion.unpack.x = 0.f;
 	estadosrender.meshes[0].rotacion.unpack.y = 0.f;
 	estadosrender.meshes[0].rotacion.unpack.z = 0.f;
-	estadosrender.meshes[0].escala.unpack.x = 1.f; 	
-	estadosrender.meshes[0].escala.unpack.y = 1.f;
-	estadosrender.meshes[0].escala.unpack.z = 1.f; 
+	estadosrender.meshes[0].escala.unpack.x = 0.003f;
+	estadosrender.meshes[0].escala.unpack.y = 0.003f;
+	estadosrender.meshes[0].escala.unpack.z = 0.003f; 
 	
 	//En espacio local, crear el cubo
 	// int p = 0;
@@ -163,7 +182,6 @@ void update(){
 	estadosrender.meshes[0].rotacion.unpack.z += 0.001f;
 
 	transformar();
-
 }
 
 void render_frame(){
@@ -219,4 +237,22 @@ Vec2* pivote_mas_cerca(Vec2 mp, Figuras *figs, float umbral){
     }
 
     return NULL;
+}
+
+int back_face_culling(Vec3 camara, Vec3 *puntos){
+	Vec3 BA = resta_vec3(puntos[1], puntos[0]);
+	normalizar_vec3_inplace(&BA);
+	Vec3 CA = resta_vec3(puntos[2], puntos[0]);
+	normalizar_vec3_inplace(&CA);
+
+	Vec3 N = cross_vec3(BA, CA);
+	Vec3 Ray = resta_vec3(camara, puntos[0]);
+	normalizar_vec3_inplace(&Ray);
+
+	float cull = dot_vec3(N, Ray);
+
+	if(cull < 0)
+		return 0;
+
+	return 1;
 }

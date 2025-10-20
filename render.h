@@ -19,3 +19,5 @@ void render_input(void);
 
 Vec2* pivote_mas_cerca(Vec2 mp, Figuras *figs, float umbral);
 void transformaciones(Vec3 escala, float radianesRotacionY, Vec3 traslado);
+
+int back_face_culling(Vec3 camara, Vec3 *puntos);
