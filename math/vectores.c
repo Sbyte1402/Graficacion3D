@@ -16,9 +16,9 @@ Vec3 vec4_to_vec3(Vec4 *p){
 
 Vec3 cross_vec3(Vec3 p, Vec3 v){
 	return (Vec3){{
-		(p.unpack.y * p.unpack.z) - (v.unpack.y * p.unpack.z),		
-		(p.unpack.z * p.unpack.x) - (v.unpack.x * p.unpack.z),		
-		(p.unpack.x * p.unpack.y) - (v.unpack.y * p.unpack.x)
+		p.unpack.y * v.unpack.z - v.unpack.y * p.unpack.z,		
+		p.unpack.z * v.unpack.x - p.unpack.x * v.unpack.z,		
+		p.unpack.x * v.unpack.y - p.unpack.y * v.unpack.x
 	}};
 }
 
@@ -35,7 +35,7 @@ float dot_vec3(Vec3 p, Vec3 v){
 }
 
 float magnitud(Vec3 p){
-	return sqrt(pow(p.unpack.x, 2) + (pow(p.unpack.y, 2)) + (pow(p.unpack.z, 2)));
+	return sqrt(pow(p.unpack.x, 2) + pow(p.unpack.y, 2)) + pow(p.unpack.z, 2);
 }
 
 Vec3 normalizar_vec3(Vec3 p){
@@ -54,4 +54,12 @@ void normalizar_vec3_inplace(Vec3 *p){
 	p -> unpack.x /= mag;
 	p -> unpack.y /= mag;
 	p -> unpack.z /= mag;
+}
+
+Vec3 escala_vec3(Vec3 *p, float s){
+	return (Vec3){{
+		p -> unpack.x * s,
+		p -> unpack.y * s,
+		p -> unpack.z * s,
+	}};
 }

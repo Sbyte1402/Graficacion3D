@@ -34,6 +34,7 @@ float distanciav2(Vec2 p1, Vec2 p2);
 Vec3 vec4_to_vec3(Vec4 *p);
 Vec3 cross_vec3(Vec3 p, Vec3 v);
 Vec3 resta_vec3(Vec3 p, Vec3 v);
+Vec3 escala_vec3(Vec3 *p, float s);
 float dot_vec3(Vec3 p, Vec3 v);
 
 float magnitud(Vec3 p);

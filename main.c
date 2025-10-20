@@ -57,8 +57,10 @@ int main(int argc, char** argv){
             copy_buffer_to_texture();
             clear_color_buffer();
             render_frame();
+
+	    frame_tiempo_prev = delay_frame;
         }
-    
+    render_clean();
 
     return 0;
 }

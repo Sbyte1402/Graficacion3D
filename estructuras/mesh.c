@@ -38,6 +38,7 @@ Mesh loadMesh(const char *filePath, MeshOpciones opt){
 	}
 	nuevo.escala = (Vec3){{1.f, 1.f, 1.f}};
 	nuevo.rotacion = (Vec3){{0.f, 0.f, 0.f}};
+	nuevo.traslado = (Vec3){{0.f, 0.f, 0.f}};
 
 	return nuevo;
 }

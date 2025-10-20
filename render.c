@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define N_PUNTOS 9 * 9 * 9
 #define N_CARAS 6 * 2
@@ -18,9 +19,17 @@ Triangulo cubo_triangulos[N_CARAS];
 Vec3 camara;
 Vec3 rotaciones;
 Vec3 escalamiento;
-const float fovf = 630;
+
+const int fovf = 630;
 
 Vec2 *punto_seleccionado = NULL;
+
+int comparar(const void *a, const void *b){
+	Triangulo *A = (Triangulo*)a;
+	Triangulo *B = (Triangulo*)b;
+
+	return A -> avg_z - B -> avg_z;
+}
 
 void transformar(void){
 	for(int m = 0; m < array_size(estadosrender.meshes); ++m){
@@ -40,7 +49,8 @@ void transformar(void){
 			Triangulo triangulo_proyectado;
 			Vec3 vertices_transformados[3];
 			// Por cada vertice
-			for(int j = 0; j < 3; j++){
+			// ++j o j++
+			for(int j = 0; j < 3; ++j){
 				Vec3 punto = cara_vertice[j];
 
 				// Matriz de transformacion
@@ -63,6 +73,10 @@ void transformar(void){
 			if(!back_face_culling(camara, vertices_transformados))
 				continue;
 
+			float avg_z = (vertices_transformados[0].unpack.z + 
+				       vertices_transformados[1].unpack.z +
+				       vertices_transformados[2].unpack.z) / 3.f;
+
 			for(int j = 0; j < 3; ++j){
 				Vec4 pp = {{vertices_transformados[j].unpack.x, 
 					    vertices_transformados[j].unpack.y, 
@@ -70,6 +84,7 @@ void transformar(void){
 					    1.f}};
 
 				Mat4 PM = mat4_matriz_proyeccion(fovf, estadosrender.w_height / (float)estadosrender.w_width, 1.f, 100.f);
+
 				Vec4 punto_proyectado = proyeccion(&PM, pp);
 
 				// Escala ya que los puntos estan entre 0-1
@@ -83,9 +98,16 @@ void transformar(void){
 				// Generar triangulos
 				triangulo_proyectado.pos[j].unpack.x = punto_proyectado.unpack.x;
 				triangulo_proyectado.pos[j].unpack.y = punto_proyectado.unpack.y;
+				triangulo_proyectado.pos[j].unpack.z = punto_proyectado.unpack.z;
+				triangulo_proyectado.avg_z = avg_z;
 			}
 			pushto_array(estadosrender.meshes[m].triangulos, triangulo_proyectado);
 		}
+		// Painters algorithm ordenar por promedio por profundidad
+		qsort(estadosrender.meshes[m].triangulos, 
+			array_size(estadosrender.meshes[m].triangulos), 
+			sizeof(estadosrender.meshes[m].triangulos[0]), 
+			comparar);
 	}
 }
 
@@ -155,15 +177,16 @@ void _Init(){
 
 	pushto_array(estadosrender.meshes, cubo);
 
-	estadosrender.meshes[0].traslado.unpack.z = 5.f;
 
 	estadosrender.meshes[0].rotacion.unpack.x = 0.f;
 	estadosrender.meshes[0].rotacion.unpack.y = 0.f;
 	estadosrender.meshes[0].rotacion.unpack.z = 0.f;
-	estadosrender.meshes[0].escala.unpack.x = 0.003f;
-	estadosrender.meshes[0].escala.unpack.y = 0.003f;
-	estadosrender.meshes[0].escala.unpack.z = 0.003f; 
+
+	estadosrender.meshes[0].escala.unpack.x = 1.f;
+	estadosrender.meshes[0].escala.unpack.y = 1.f;
+	estadosrender.meshes[0].escala.unpack.z = 1.f; 
 	
+	estadosrender.meshes[0].traslado.unpack.z = 5.f;
 	//En espacio local, crear el cubo
 	// int p = 0;
 	// for(float x = -1; x <= 1; x += 0.25){
@@ -200,43 +223,11 @@ void render_frame(){
 		
 			draw_trian(trian.pos[0].unpack.x, trian.pos[0].unpack.y,
 				   trian.pos[1].unpack.x, trian.pos[1].unpack.y,
-				   trian.pos[2].unpack.x, trian.pos[2].unpack.y, 0xFF00FFFF);
+				   trian.pos[2].unpack.x, trian.pos[2].unpack.y, 0x00FFFFFF);
 
 		}
 	}
 		SDL_RenderPresent(estadosrender.renderer);
-}
-
-Vec2* pivote_mas_cerca(Vec2 mp, Figuras *figs, float umbral){
-    
-    int a = 0;
-    int b = array_size(figs) - 1;
-    
-    float low;
-    float high;
-    float centro;
-    for(int i = 0; i < array_size(figs); i++){
-        int r = (a + b) / 2;
-        low = distanciav2(mp, figs[a].cuadro.pos);
-        high = distanciav2(mp, figs[b].cuadro.pos);
-        centro = distanciav2(mp, figs[r].cuadro.pos);
-
-        if(fabs(low) <= umbral){
-            return &figs[a].cuadro.pos;
-        } else if (fabs(high) <= umbral) {
-            return &figs[b].cuadro.pos;
-        } else if (fabs(centro) <= umbral){
-            return &figs[r].cuadro.pos;
-        }
-
-        if(r < b){
-            b = r;
-        } else if (r > a){
-            a = r;
-        }
-    }
-
-    return NULL;
 }
 
 int back_face_culling(Vec3 camara, Vec3 *puntos){
@@ -246,13 +237,9 @@ int back_face_culling(Vec3 camara, Vec3 *puntos){
 	normalizar_vec3_inplace(&CA);
 
 	Vec3 N = cross_vec3(BA, CA);
+	normalizar_vec3_inplace(&N);
 	Vec3 Ray = resta_vec3(camara, puntos[0]);
 	normalizar_vec3_inplace(&Ray);
 
-	float cull = dot_vec3(N, Ray);
-
-	if(cull < 0)
-		return 0;
-
-	return 1;
+	return dot_vec3(N, Ray) > 0;
 }

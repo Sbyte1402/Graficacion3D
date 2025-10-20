@@ -1,6 +1,7 @@
 #include "matrix.h"
 
 #include <math.h>
+#include <stdio.h>
 
 Mat4 mat4_eye(void){
     /*
@@ -184,4 +185,15 @@ Vec4 proyeccion(Mat4 *mat, Vec4 p){
 	}
 
 	return r;
+}
+
+void print_matriz(Mat4 *m){
+	for(int i = 0; i < 4; i++){
+		printf("[ ");
+		for(int j = 0; j <4; j++){
+			char coma = (j < 3) ? ',':'\0';
+			printf("%f%c", m -> data[i * 4 + j], coma);
+		}
+		printf("]\n");
+	}
 }

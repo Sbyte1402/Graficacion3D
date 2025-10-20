@@ -21,6 +21,6 @@ void draw_curva(Vec2 p1, Vec2 p2, Vec2 p3, uint32_t color);
 void fill_triangulo(Triangulo *triangulo, uint32_t color);
 void fill_figura(void *figura, uint32_t fill_color);
 void fill_flood(Vec2 *pInicial, uint32_t fill_color);
-void fill_cuadro(Vec2 pos, int w, int h, uint32_t color, uint32_t contorno);
+void fill_cuadro(Vec3 pos, int w, int h, uint32_t color, uint32_t contorno);
 
 uint32_t getColor(Vec2 *pixel);

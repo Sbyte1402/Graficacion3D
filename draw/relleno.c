@@ -7,9 +7,9 @@
 
 #include <stdlib.h>
 
-void fill_flat_bottom(Vec2 p1,Vec2 p2, Vec2 p3, uint32_t color);
-void fill_flat_top(Vec2 p1,Vec2 p2, Vec2 p3, uint32_t color);
-void ordenar_y(Vec2 *y);
+void fill_flat_bottom(Vec3 p1,Vec3 p2, Vec3 p3, uint32_t color);
+void fill_flat_top(Vec3 p1,Vec3 p2, Vec3 p3, uint32_t color);
+void ordenar_y(Vec3 *y);
 uint32_t getColor(Vec2 *pixel);
 
 void fill_figura(void *figura, uint32_t fill_color){
@@ -104,7 +104,7 @@ void fill_flood(Vec2 *pInicial, uint32_t fill_color){
 void fill_triangulo(Triangulo *triangulo, uint32_t color){
     // Ordenar
     float cy, cx;
-    Vec2 y[3];
+    Vec3 y[3];
 
     y[0] = triangulo -> pos[0];
     y[1] = triangulo -> pos[1];
@@ -120,14 +120,14 @@ void fill_triangulo(Triangulo *triangulo, uint32_t color){
         cy = y[1].unpack.y;
         cx = (y[1].unpack.y - y[0].unpack.y) * (y[2].unpack.x - y[0].unpack.x) / (y[2].unpack.y - y[0].unpack.y) + y[0].unpack.x;
 
-        Vec2 v = {{cx, cy}};
+        Vec3 v = {{cx, cy}};
         fill_flat_bottom(y[0], y[1], v, color);
         fill_flat_top(v, y[1], y[2], color);
     }
 }
 
-void ordenar_y(Vec2 *y){
-    Vec2 aux;
+void ordenar_y(Vec3 *y){
+    Vec3 aux;
 
     for(int i = 0; i < 3; i++){
         for(int j = i + 1; j < 3; j++){
@@ -140,7 +140,7 @@ void ordenar_y(Vec2 *y){
     }
 }
 
-void fill_flat_bottom(Vec2 p2, Vec2 p3, Vec2 c, uint32_t color){
+void fill_flat_bottom(Vec3 p2, Vec3 p3, Vec3 c, uint32_t color){
     float mi = (p3.unpack.x - p2.unpack.x) / (p3.unpack.y - p2.unpack.y);
     float mf = (c.unpack.x - p2.unpack.x) / (c.unpack.y - p2.unpack.y);
 
@@ -154,7 +154,7 @@ void fill_flat_bottom(Vec2 p2, Vec2 p3, Vec2 c, uint32_t color){
     }
 }
 
-void fill_flat_top(Vec2 p1, Vec2 p2 ,Vec2 c, uint32_t color){
+void fill_flat_top(Vec3 p1, Vec3 p2 ,Vec3 c, uint32_t color){
     float mi = (c.unpack.x - p1.unpack.x) / (c.unpack.y - p1.unpack.y);
     float mf = (c.unpack.x - p2.unpack.x) / (c.unpack.y - p2.unpack.y);
 

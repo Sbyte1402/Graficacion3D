@@ -61,10 +61,9 @@ void linea_brhm(int x0, int y0, int x1, int y1, uint32_t color){
 
     while(1){
         draw_pixel(x, y, color);
+	int e2 = 2 * error;
 
         if(x == x1 && y == y1) break;
-
-        int e2 = 2 * error;
 
         if(e2 >= dy){
             error = error + dy;
