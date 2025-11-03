@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_scancode.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -42,8 +43,8 @@ int main(int argc, char** argv){
             render_input();
             if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN){
                 // Si tecla 1 se presiona
-                if(estadosrender.evento.key.scancode == SDL_SCANCODE_1){
-                    grabar = 1;
+                if(estadosrender.evento.key.scancode == SDL_SCANCODE_CAPSLOCK){
+                    grabar = 0;
                 }
             }
 	}

@@ -2,7 +2,6 @@
 #include "../memoria/memoria.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 Mesh loadMesh(const char *filePath, MeshOpciones opt){
 	Mesh nuevo = {0};

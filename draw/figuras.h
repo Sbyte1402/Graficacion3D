@@ -38,6 +38,7 @@ typedef struct _triangulo{
     Color color;
     TypeFig type;
     float avg_z;
+    Vec3 normal;
 }Triangulo;
 
 typedef struct _linea{
@@ -71,3 +72,4 @@ typedef union  _figuras{
 }Figuras;
 
 void draw_figura(Figuras *fig);
+Vec3 normal_triangulo(Triangulo *trian);

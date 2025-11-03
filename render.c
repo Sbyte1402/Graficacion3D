@@ -1,15 +1,16 @@
 #include "render.h"
-#include "draw/draw.h"
 #include "global.h"
+#include "draw/draw.h"
 #include "math/matrix.h"
 #include "draw/figuras.h"
 #include "math/vectores.h"
 #include "color/colores.h"
+#include "estructuras/luz.h"
 #include "memoria/memoria.h"
 
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <SDL3/SDL_oldnames.h>
 
 #define N_PUNTOS 9 * 9 * 9
 #define N_CARAS 6 * 2
@@ -20,7 +21,14 @@ Vec3 camara;
 Vec3 rotaciones;
 Vec3 escalamiento;
 
+int dotsFlag = 0;
+int vertexFlag = 0;
+int fillFlag = 0;
+int backFaceCullingFlag = 0;
+
 const int fovf = 630;
+
+Luz luz = {{{0.f, 0.f, 1.f}}};
 
 Vec2 *punto_seleccionado = NULL;
 
@@ -70,13 +78,24 @@ void transformar(void){
 			}
 
 			// Back-face culling
-			if(!back_face_culling(camara, vertices_transformados))
+			if(!back_face_culling(camara, vertices_transformados) && backFaceCullingFlag)
 				continue;
 
 			float avg_z = (vertices_transformados[0].unpack.z + 
 				       vertices_transformados[1].unpack.z +
 				       vertices_transformados[2].unpack.z) / 3.f;
 
+			triangulo_proyectado.pos[0] = vertices_transformados[0];
+			triangulo_proyectado.pos[1] = vertices_transformados[1];
+			triangulo_proyectado.pos[2] = vertices_transformados[2];
+
+			triangulo_proyectado.avg_z = avg_z;
+			triangulo_proyectado.color.hex = 0xAB1056FF;
+			normal_triangulo(&triangulo_proyectado);
+			float intesidad = -dot_vec3(triangulo_proyectado.normal, luz.direccion);
+			triangulo_proyectado.color.hex = luz_intensidad(triangulo_proyectado.color.hex, intesidad);
+
+			triangulo_proyectado.normal = normal_triangulo(&triangulo_proyectado);
 			for(int j = 0; j < 3; ++j){
 				Vec4 pp = {{vertices_transformados[j].unpack.x, 
 					    vertices_transformados[j].unpack.y, 
@@ -90,6 +109,7 @@ void transformar(void){
 				// Escala ya que los puntos estan entre 0-1
 				punto_proyectado.unpack.y *= estadosrender.w_height / 2.f;
 				punto_proyectado.unpack.x *= estadosrender.w_width / 2.f;
+				punto_proyectado.unpack.y *= -1;
 
 				// Centrar
 				punto_proyectado.unpack.y += estadosrender.w_height / 2.f;
@@ -99,8 +119,8 @@ void transformar(void){
 				triangulo_proyectado.pos[j].unpack.x = punto_proyectado.unpack.x;
 				triangulo_proyectado.pos[j].unpack.y = punto_proyectado.unpack.y;
 				triangulo_proyectado.pos[j].unpack.z = punto_proyectado.unpack.z;
-				triangulo_proyectado.avg_z = avg_z;
 			}
+
 			pushto_array(estadosrender.meshes[m].triangulos, triangulo_proyectado);
 		}
 		// Painters algorithm ordenar por promedio por profundidad
@@ -114,6 +134,26 @@ void transformar(void){
 void render_input(void){
     if(estadosrender.evento.type == SDL_EVENT_QUIT){
         estadosrender.run = 0;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_1){
+	printf("dotsFlag: %d", dotsFlag);
+	dotsFlag = !dotsFlag;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_2){
+	printf("vertexFlag: %d", vertexFlag);
+	vertexFlag = !vertexFlag;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_3){
+	printf("fillFlag: %d", fillFlag);
+	fillFlag = !fillFlag;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_4){
+	printf("backFaceCullingFlag: %d", backFaceCullingFlag);
+	backFaceCullingFlag = !backFaceCullingFlag;
     }
 
     //if(estadosrender.evento.type == SDL_EVENT_MOUSE_BUTTON_DOWN){
@@ -177,7 +217,6 @@ void _Init(){
 
 	pushto_array(estadosrender.meshes, cubo);
 
-
 	estadosrender.meshes[0].rotacion.unpack.x = 0.f;
 	estadosrender.meshes[0].rotacion.unpack.y = 0.f;
 	estadosrender.meshes[0].rotacion.unpack.z = 0.f;
@@ -200,9 +239,9 @@ void _Init(){
 }
 
 void update(){
-	estadosrender.meshes[0].rotacion.unpack.x += 0.001f;
-	estadosrender.meshes[0].rotacion.unpack.y += 0.001f;
-	estadosrender.meshes[0].rotacion.unpack.z += 0.001f;
+	estadosrender.meshes[0].rotacion.unpack.x += 0.002f;
+	estadosrender.meshes[0].rotacion.unpack.y += 0.002f;
+	estadosrender.meshes[0].rotacion.unpack.z += 0.002f;
 
 	transformar();
 }
@@ -216,15 +255,22 @@ void render_frame(){
 			// Vertices de los triangulos
 			Triangulo trian = estadosrender.meshes[m].triangulos[i];
 
-			fill_cuadro(trian.pos[0], 4, 4, 0xFF00FFFF, 0xFF00FFFF);
-			fill_cuadro(trian.pos[1], 4, 4, 0xFF00FFFF, 0xFF00FFFF);
-			fill_cuadro(trian.pos[2], 4, 4, 0xFF00FFFF, 0xFF00FFFF);
+			if(dotsFlag){
+				fill_cuadro(trian.pos[0], 4, 4, 0x0000FFFF, 0x000000FF);
+				fill_cuadro(trian.pos[1], 4, 4, 0x0000FFFF, 0x000000FF);
+				fill_cuadro(trian.pos[2], 4, 4, 0x0000FFFF, 0x000000FF);
+			}
 			// Lineas de los triangulos
-		
-			draw_trian(trian.pos[0].unpack.x, trian.pos[0].unpack.y,
-				   trian.pos[1].unpack.x, trian.pos[1].unpack.y,
-				   trian.pos[2].unpack.x, trian.pos[2].unpack.y, 0x00FFFFFF);
+			
+			if(fillFlag){
+				fill_triangulo(&trian, trian.color.hex);
+			}
 
+			if(vertexFlag){
+				draw_trian(trian.pos[0].unpack.x, trian.pos[0].unpack.y,
+					   trian.pos[1].unpack.x, trian.pos[1].unpack.y,
+				   	   trian.pos[2].unpack.x, trian.pos[2].unpack.y, 0x00FFFFFF);
+			}
 		}
 	}
 		SDL_RenderPresent(estadosrender.renderer);
