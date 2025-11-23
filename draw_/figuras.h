@@ -2,9 +2,14 @@
 
 #include "../math/vectores.h"
 #include "../color/colores.h"
+#include "../color/textura.h"
 
 typedef struct caras_indices {
 	int a, b, c;
+
+	TexturaUV a_uv;
+	TexturaUV b_uv;
+	TexturaUV c_uv;
 }Cara_t;
 
 typedef enum _tipos_fig{
@@ -33,13 +38,6 @@ typedef struct  _circulo{
     TypeFig type;
 }Circulo;
 
-typedef struct _triangulo{
-    Vec3 pos[3];
-    Color color;
-    TypeFig type;
-    float avg_z;
-    Vec3 normal;
-}Triangulo;
 
 typedef struct _linea{
     Vec2 p1;
@@ -54,13 +52,20 @@ typedef struct _curva{
     Vec2 p2;
     Vec2 p3;
     Color color;
-    TypeFig type;
+   TypeFig type;
 }Curva;
 
 typedef struct _figdummy{
     char offset[28];
     TypeFig type;
 }FigComun;
+
+typedef struct _triangulo{
+	Vec4 pos[3];
+	Color color;
+	Vec3 normal;
+	TexturaUV texUV[3];
+}Triangulo;
 
 typedef union  _figuras{
     FigComun data;
@@ -71,5 +76,8 @@ typedef union  _figuras{
     Curva curva;
 }Figuras;
 
+void swap(Vec3 *p1, Vec3 *p2);
+void swapUV(TexturaUV *p1, TexturaUV *p2);
+void swapv4(Vec4 *p1, Vec4 *p2);
 void draw_figura(Figuras *fig);
 Vec3 normal_triangulo(Triangulo *trian);

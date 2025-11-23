@@ -1,9 +1,9 @@
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_scancode.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_scancode.h>
 
 #include "global.h"
 #include "render.h"
@@ -57,12 +57,12 @@ int main(int argc, char** argv){
             }
             copy_buffer_to_texture();
             clear_color_buffer();
+	    clear_z_buffer();
             render_frame();
 
 	    frame_tiempo_prev = delay_frame;
         }
     render_clean();
-
     return 0;
 }
 
@@ -78,7 +78,10 @@ void render_init(void){
     assert(estadosrender.renderer && "No se creó el render...\n");
 
     estadosrender.color_buffer = malloc(estadosrender.w_width * estadosrender.w_height * sizeof(uint32_t));
+    estadosrender.z_buffer = calloc(estadosrender.w_width * estadosrender.w_height, sizeof(float));
+
     assert(estadosrender.color_buffer && "No se creó el color buffer...\n");
+    assert(estadosrender.z_buffer && "No se pudo crear el z-buffer\n");
 
     estadosrender.texture = SDL_CreateTexture(estadosrender.renderer, 
                                               SDL_PIXELFORMAT_RGBA8888, 
@@ -90,11 +93,11 @@ void render_init(void){
 
 void render_clean(void){
     free_array(estadosrender.meshes);
-    //free(estadosrender.figuras_buffer);
     SDL_DestroyTexture(estadosrender.texture);
     SDL_DestroyRenderer(estadosrender.renderer);
     SDL_DestroyWindow(window);
     free(estadosrender.color_buffer);
+    free(estadosrender.z_buffer);
 }
 
 void grabar_imagen(void){

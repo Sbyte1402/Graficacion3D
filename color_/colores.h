@@ -13,3 +13,4 @@ typedef union _color{
 }Color;
 
 Color lerp_color(Color color_start, Color color_end, float steps);
+uint32_t *cargar_imagen(const char *path, int *x, int *y, int *c, int n);

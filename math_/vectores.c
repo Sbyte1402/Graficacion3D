@@ -8,10 +8,16 @@ float distanciav2(Vec2 p1, Vec2 p2){
 }
 
 Vec3 vec4_to_vec3(Vec4 *p){
-	float w = p -> unpack.w;
-	return (Vec3){{p -> unpack.x / w,
-			p -> unpack.y / w,
-			p -> unpack.z / w}};
+	return (Vec3){{p -> unpack.x,
+		       p -> unpack.y,
+		       p -> unpack.z}};
+}
+
+Vec4 vec3_to_vec4(Vec3 *p){
+	return (Vec4){{p -> unpack.x, 
+		       p -> unpack.y, 
+		       p -> unpack.z, 
+		       1.f}};
 }
 
 Vec3 cross_vec3(Vec3 p, Vec3 v){
@@ -27,6 +33,14 @@ Vec3 resta_vec3(Vec3 p, Vec3 v){
 		p.unpack.x - v.unpack.x,
 		p.unpack.y - v.unpack.y,
 		p.unpack.z - v.unpack.z,
+	}};
+}
+
+Vec3 suma_vec3(Vec3 p, Vec3 v){
+	return (Vec3){{
+		p.unpack.x + v.unpack.x,
+		p.unpack.y + v.unpack.y,
+		p.unpack.z + v.unpack.z,
 	}};
 }
 

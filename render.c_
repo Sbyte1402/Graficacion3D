@@ -1,0 +1,485 @@
+#include "render.h"
+#include "global.h"
+#include "draw/draw.h"
+#include "math/matrix.h"
+#include "draw/figuras.h"
+#include "math/vectores.h"
+#include "color/colores.h"
+#include "estructuras/luz.h"
+#include "memoria/memoria.h"
+#include "estructuras/camara.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <SDL3/SDL_oldnames.h>
+
+#define N_PUNTOS 9 * 9 * 9
+#define N_CARAS 6 * 2
+
+void drawLightRay(void);
+
+Triangulo cubo_triangulos[N_CARAS];
+
+Camara camara = {{{0, 0, 0}}, {{0, 0, 1}}, {{0}}, 0.f};
+Mat4 camara_yaw_rotacion = {0};
+Vec3 origen = {{0, 0, 0}};
+Vec3 target = {{0, 0, 4}};
+Vec3 arriba = {{0, 1, 0}};
+
+Mat4 view_matrix;
+
+Vec3 rotaciones;
+Vec3 escalamiento;
+
+int dotsFlag = 0;
+int vertexFlag = 0;
+int fillFlag = 0;
+int backFaceCullingFlag = 0;
+int renderMeshFlag = 0;
+
+const int fovf = 630;
+
+Luz luz = {{{0.f, -1.f, 0.f}}};
+uint32_t *img = 0;
+
+Vec2 *punto_seleccionado = NULL;
+
+//int comparar(const void *a, const void *b){
+//	Triangulo *A = (Triangulo*)a;
+//	Triangulo *B = (Triangulo*)b;
+//
+//	return A -> avg_z - B -> avg_z;
+//}
+
+void transformar(void){
+	view_matrix = look_at(camara.posicion, target, arriba);
+
+	for(int m = 0; m < array_size(estadosrender.meshes); ++m){
+		free_array(estadosrender.meshes[m].triangulos);
+		estadosrender.meshes[m].triangulos = 0;
+
+		// Por cada cara del buffer
+		int num_caras = array_size(estadosrender.meshes[m].indices);
+		for(int i = 0; i < num_caras; i++){
+			Cara_t punto_cara = estadosrender.meshes[m].indices[i];
+			Vec3 cara_vertice[3];
+
+			cara_vertice[0] = estadosrender.meshes[m].vertices[punto_cara.a - 1];
+			cara_vertice[1] = estadosrender.meshes[m].vertices[punto_cara.b - 1];
+			cara_vertice[2] = estadosrender.meshes[m].vertices[punto_cara.c - 1];
+
+			Triangulo triangulo_proyectado = {0};
+			Vec4 vertices_transformados[3];
+			// Por cada vertice
+			// ++j o j++
+			for(int j = 0; j < 3; ++j){
+				Vec4 punto = vec3_to_vec4(&cara_vertice[j]);
+
+				// Matriz de transformacion
+				Mat4 mt = mat4_eye();
+				// Escalamos
+				mat4_push_escala(&mt, estadosrender.meshes[m].escala);
+				// Rotamos
+				mat4_push_rotar(&mt, estadosrender.meshes[m].rotacion);
+				// Trasladamos
+				mat4_push_traslado(&mt, estadosrender.meshes[m].traslado);
+
+				vertices_transformados[j] = mat4_dot_vec4(&mt, &punto);
+				vertices_transformados[j] = mat4_dot_vec4(&view_matrix, &vertices_transformados[j]);
+			}
+
+			// Back-face culling
+			int mostrar = back_face_culling(origen, vertices_transformados);
+			if(!mostrar && backFaceCullingFlag)
+				continue;
+
+			//float avg_z = (vertices_transformados[0].unpack.z + 
+			//	       vertices_transformados[1].unpack.z +
+			//	       vertices_transformados[2].unpack.z) / 3.f;
+
+			triangulo_proyectado.pos[0] = vertices_transformados[0];
+			triangulo_proyectado.pos[1] = vertices_transformados[1];
+			triangulo_proyectado.pos[2] = vertices_transformados[2];
+			//triangulo_proyectado.avg_z = avg_z;
+
+			triangulo_proyectado.color.hex = estadosrender.meshes[m].textura.pixeles[0];
+			normal_triangulo(&triangulo_proyectado);
+			float intesidad = -dot_vec3(triangulo_proyectado.normal, luz.direccion);
+			triangulo_proyectado.color.hex = luz_intensidad(triangulo_proyectado.color.hex, intesidad);
+
+			// Posicion de la luz
+
+			Vec4 punto_proyectado[3];
+
+			for(int j = 0; j < 3; ++j){
+				Vec4 pp = vertices_transformados[j];
+
+				Mat4 PM = mat4_matriz_proyeccion(fovf, estadosrender.w_height / (float)estadosrender.w_width, 1.f, 100.f);
+
+				punto_proyectado[j] = proyeccion(&PM, pp);
+
+				// Escala ya que los puntos estan entre 0-1
+				punto_proyectado[j].unpack.y *= estadosrender.w_height / 2.f;
+				punto_proyectado[j].unpack.x *= estadosrender.w_width / 2.f;
+				punto_proyectado[j].unpack.y *= -1;
+
+				// Centrar
+				punto_proyectado[j].unpack.y += estadosrender.w_height / 2.f;
+				punto_proyectado[j].unpack.x += estadosrender.w_width / 2.f;
+
+				// Generar triangulos
+				triangulo_proyectado.pos[j].unpack.x = punto_proyectado[j].unpack.x;
+				triangulo_proyectado.pos[j].unpack.y = punto_proyectado[j].unpack.y;
+				triangulo_proyectado.pos[j].unpack.z = punto_proyectado[j].unpack.z;
+
+				// Correccion de textura
+				triangulo_proyectado.pos[j].unpack.w = punto_proyectado[j].unpack.w;
+			}
+			triangulo_proyectado.texUV[0] = estadosrender.meshes[m].indices[i].a_uv;
+			triangulo_proyectado.texUV[1] = estadosrender.meshes[m].indices[i].b_uv;
+			triangulo_proyectado.texUV[2] = estadosrender.meshes[m].indices[i].c_uv;
+
+			pushto_array(estadosrender.meshes[m].triangulos, triangulo_proyectado);
+		}
+		// Painters algorithm ordenar por promedio por profundidad
+		//qsort(estadosrender.meshes[m].triangulos, 
+		//	array_size(estadosrender.meshes[m].triangulos), 
+		//	sizeof(estadosrender.meshes[m].triangulos[0]), 
+		//	comparar);
+	}
+}
+
+void render_input(void){
+    if(estadosrender.evento.type == SDL_EVENT_QUIT){
+        estadosrender.run = 0;
+    }
+
+    if(estadosrender.evento.key.scancode == SDL_SCANCODE_W){
+	//camara.velocidad_fwd = escala_vec3(&camara.direccion, 1.f * estadosrender.dt);
+	camara.posicion = suma_vec3(camara.posicion, camara.velocidad_fwd);
+    }
+
+    if(estadosrender.evento.key.scancode == SDL_SCANCODE_S){
+	//camara.velocidad_fwd = escala_vec3(&camara.direccion, 1.f * estadosrender.dt);
+	camara.posicion = resta_vec3(camara.posicion, camara.velocidad_fwd);
+    }
+
+    if (estadosrender.evento.key.scancode == SDL_SCANCODE_SPACE && estadosrender.evento.key.mod & SDL_KMOD_SHIFT) {
+	//camara.posicion.unpack.y -= 1.f * estadosrender.dt;
+    } else if (estadosrender.evento.key.scancode == SDL_SCANCODE_SPACE) {
+	//camara.posicion.unpack.y += 1.f * estadosrender.dt;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_1){
+	dotsFlag = !dotsFlag;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_2){
+	vertexFlag = !vertexFlag;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_3){
+	fillFlag = !fillFlag;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_4){
+	backFaceCullingFlag = !backFaceCullingFlag;
+    }
+    
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_5){
+	renderMeshFlag = !renderMeshFlag;
+    }
+
+    //if(estadosrender.evento.type == SDL_EVENT_MOUSE_BUTTON_DOWN){
+    //    // Buscar el pivote mas cerca
+    //    // Obtener referencia de la figura
+    //    // Modificar
+
+    //    // printf("(%.3f, %.3f)\n", estadosrender.evento.motion.x, estadosrender.evento.motion.y);
+
+    //    Vec2 *pivote = pivote_mas_cerca((Vec2){{estadosrender.evento.motion.x,
+    //                                           estadosrender.evento.motion.y}},
+    //                                           estadosrender.figuras_temp_buffer,
+    //                                           20.f);
+
+    //    if(!punto_seleccionado){
+    //        punto_seleccionado = pivote_mas_cerca((Vec2){{estadosrender.evento.motion.x,
+    //                                                      estadosrender.evento.motion.y}},
+    //                                                      estadosrender.figuras_temp_buffer,
+    //                                                      20.f);
+    //    }
+
+    //    if(punto_seleccionado){
+    //        printf("Punto cercano (%.3f, %.3f)\n",pivote -> unpack.x, pivote -> unpack.y);
+    //    }
+
+    //} else if (estadosrender.evento.type == SDL_EVENT_MOUSE_BUTTON_UP){
+    //    // Modificar la figura
+    //    if(punto_seleccionado){
+    //        punto_seleccionado->unpack.x = estadosrender.evento.motion.x;
+    //        punto_seleccionado->unpack.y = estadosrender.evento.motion.y;
+    //        punto_seleccionado = NULL;
+    //    }
+    //}
+}
+
+void clear_color_buffer(){
+    for(int y = 0; y < estadosrender.w_height; ++y){
+        for(int x = 0; x < estadosrender.w_width; ++x){
+            draw_pixel(x, y, estadosrender.clear_color.hex);
+        }
+    }
+}
+
+void clear_z_buffer(){
+	for(int y = 0; y < estadosrender.w_height; ++y){
+		for(int x = 0; x < estadosrender.w_width; ++x){
+			estadosrender.z_buffer[y * estadosrender.w_width + x] = 1.f;
+		}
+	}
+}
+
+void copy_buffer_to_texture(){
+    SDL_UpdateTexture(estadosrender.texture, 
+                      NULL, 
+                      estadosrender.color_buffer, 
+                      (int)(estadosrender.w_width * sizeof(int)));
+
+    SDL_RenderTexture(estadosrender.renderer, 
+                      estadosrender.texture, 
+                      NULL, 
+                      NULL);
+}
+
+void _Init(){
+	camara.posicion.unpack.z = -5.f;
+
+	// Cargar mesh
+	// Mesh cubo = loadMesh("assets/crab.obj", VERTICES | INDICES | UV);
+	Mesh floor = loadMesh("assets/cube.obj", VERTICES | INDICES | UV);
+
+	// pushto_array(estadosrender.meshes, cubo);
+	pushto_array(estadosrender.meshes, floor);
+
+	estadosrender.meshes[0].rotacion.unpack.x = 0.f;
+	estadosrender.meshes[0].rotacion.unpack.y = 0.f;
+	estadosrender.meshes[0].rotacion.unpack.z = 0.f;
+
+	estadosrender.meshes[0].escala.unpack.x = 1.f;
+	estadosrender.meshes[0].escala.unpack.y = 1.f;
+	estadosrender.meshes[0].escala.unpack.z = 1.f; 
+	
+	estadosrender.meshes[0].traslado.unpack.z = 10.f;
+	//En espacio local, crear el cubo
+	// int p = 0;
+	// for(float x = -1; x <= 1; x += 0.25){
+	//	for(float y = -1; y <= 1; y += 0.25){
+	//		for(float z = -1; z <= 1; z += 0.25){
+	//			Vec3 punto = {{x, y, z}};
+	//			cubo_puntos[p++] = punto;
+	//		}
+	//	}
+	//}
+	int imgx, imgy, imgcomp;
+	estadosrender.meshes[0].textura.pixeles = cargar_imagen("assets/crab.png", &imgx, &imgy, &imgcomp, 4);
+	printf("(%d, %d, %d)\n", imgx, imgy, imgcomp);
+
+	estadosrender.meshes[0].textura.width = imgx;
+	estadosrender.meshes[0].textura.height = imgy;
+}
+
+void update(){
+	estadosrender.meshes[0].rotacion.unpack.x += 0.001f;
+	estadosrender.meshes[0].rotacion.unpack.y += 0.001f;
+	estadosrender.meshes[0].rotacion.unpack.z += 0.001f;
+
+	transformar();
+}
+
+void render_frame(){
+	// Por cada mesh
+	for(int m = 0; m < array_size(estadosrender.meshes); ++m){
+		// Por cada triangulo
+		int num_trian = array_size(estadosrender.meshes[m].triangulos);
+		for(int i = 0; i < num_trian; i++){
+			// Vertices de los triangulos
+			Triangulo trian = estadosrender.meshes[m].triangulos[i];
+
+			if(dotsFlag){
+				fill_cuadro(vec4_to_vec3(&trian.pos[0]), 4, 4, 0x0000FFFF, 0x000000FF);
+				fill_cuadro(vec4_to_vec3(&trian.pos[1]), 4, 4, 0x0000FFFF, 0x000000FF);
+				fill_cuadro(vec4_to_vec3(&trian.pos[2]), 4, 4, 0x0000FFFF, 0x000000FF);
+			}
+			// Lineas de los triangulos
+			
+			if(fillFlag){
+				fill_triangulo(trian.pos[0],
+					       trian.pos[1],
+					       trian.pos[2],
+					       trian.color.hex);
+			}
+
+			if(vertexFlag){
+				draw_trian(trian.pos[0].unpack.x, trian.pos[0].unpack.y,
+					   trian.pos[1].unpack.x, trian.pos[1].unpack.y,
+				   	   trian.pos[2].unpack.x, trian.pos[2].unpack.y, 0x00FFFFFF);
+			}
+
+			if(renderMeshFlag){
+				tex_trian(trian.pos[0], trian.texUV[0], 
+					  trian.pos[1], trian.texUV[1], 
+					  trian.pos[2], trian.texUV[2],
+					  estadosrender.meshes[m].textura.pixeles,
+					  estadosrender.meshes[m].textura.width,
+					  estadosrender.meshes[m].textura.height);
+			}
+		}
+	}
+		drawLightRay();
+		SDL_RenderPresent(estadosrender.renderer);
+}
+
+int back_face_culling(Vec3 camara, Vec4 *puntos){
+	Vec3 BA = resta_vec3(vec4_to_vec3(&puntos[1]), vec4_to_vec3(&puntos[0]));
+	normalizar_vec3_inplace(&BA);
+	Vec3 CA = resta_vec3(vec4_to_vec3(&puntos[2]), vec4_to_vec3(&puntos[0]));
+	normalizar_vec3_inplace(&CA);
+
+	Vec3 N = cross_vec3(BA, CA);
+	normalizar_vec3_inplace(&N);
+	Vec3 Ray = resta_vec3(camara, vec4_to_vec3(&puntos[0]));
+	normalizar_vec3_inplace(&Ray);
+
+	return dot_vec3(N, Ray) > 0;
+}
+
+void drawLightRay(void){
+	// If BM empty, no draw
+	if (array_size(estadosrender.meshes) == 0) 
+		return;
+    
+	// --- 1. TRANSFORMAR Y ANALIZAR LA DIRECCIÓN DE LA LUZ ---
+    	Vec4 lightDir = vec3_to_vec4(&luz.direccion);
+	lightDir.unpack.w = 0.0f; 
+    
+	// Analize respect the cameras POV
+    	Vec4 lightCameraDir = mat4_dot_vec4(&view_matrix, &lightDir);
+
+	// Get the mag of each axis
+    	float xMagLight = fabsf(lightCameraDir.unpack.x);
+    	float yMagLight = fabsf(lightCameraDir.unpack.y);
+    	float zMagLight = fabsf(lightCameraDir.unpack.z);
+
+	// Search "flags"
+    	int searchX = 0;
+    	int searchY = 0;
+    	int searchZ = 0;
+
+	// Determine the direction of the light
+    	if (xMagLight >= yMagLight && xMagLight >= zMagLight) {
+        	searchX = 1;
+    	} else if (yMagLight >= xMagLight && yMagLight >= zMagLight) {
+        	searchY = 1;
+    	} else {
+        	searchZ = 1; // Z es el dominante
+    	}
+
+	// Determine the orientation of the light
+    	int orientation = 0;
+    	if (searchX) {
+        	orientation = (lightCameraDir.unpack.x > 0);
+    	} else if (searchY) {
+        	orientation = (lightCameraDir.unpack.y < 0);
+    	} else if (searchZ) {
+        	orientation = (lightCameraDir.unpack.z < 0);
+    	}
+
+	// --- 2. ENCONTRAR PUNTO DE COLISIÓN (PUNTO FINAL) ---
+    	float xColision = 0;
+    	float yColision = 0;
+
+    	float comparison_value;
+
+    	// Initialize colision values
+    	if (searchX) {
+        	comparison_value = orientation ? ((float)estadosrender.w_width + 1.0f) : -1.0f; // Direction IF orientation THEN --> (right border) ELSE <-- (left border)
+        	xColision = orientation ? ((float)estadosrender.w_width + 1.0f) : -1.0f;	// xColision IF orientation THEN --> (right border) ELSE <-- (left border)
+        	yColision = (float)estadosrender.w_height / 2.0f;				// yColision = middleScreen = 720/2
+    	} else if (searchY) {
+        	comparison_value = orientation ? ((float)estadosrender.w_height + 1.0f) : -1.0f;
+		xColision = (float)estadosrender.w_width / 2.0f; 
+        	yColision = orientation ? ((float)estadosrender.w_height + 1.0f) : -1.0f; 	// yColision IF orientation THEN bottom ELSE up
+    	} else if (searchZ) { 
+        	comparison_value = orientation ? 10000.0f : -10000.0f; 				// Arbitrary value --parchazo--
+        	xColision = (float)estadosrender.w_width / 2.0f; 				// Middle screen
+        	yColision = (float)estadosrender.w_height / 2.0f;
+    	}
+    	
+	// Get many triangles in the mesh
+    	int num_trian = array_size(estadosrender.meshes[0].triangulos);
+    	for(int i = 0; i < num_trian; i++){
+		// First triangle
+        	Triangulo trian = estadosrender.meshes[0].triangulos[i];
+        	
+        	// Calculate centroids
+        	float centro_x = (trian.pos[0].unpack.x + trian.pos[1].unpack.x + trian.pos[2].unpack.x) / 3.0f;
+        	float centro_y = (trian.pos[0].unpack.y + trian.pos[1].unpack.y + trian.pos[2].unpack.y) / 3.0f;
+        	float centro_z = (trian.pos[0].unpack.z + trian.pos[1].unpack.z + trian.pos[2].unpack.z) / 3.0f;
+        	
+            	int is_new_collision = 0;
+
+        	if (searchX) {
+            		if (orientation ? (centro_x < comparison_value) : (centro_x > comparison_value)) {
+                		comparison_value = centro_x;
+                		is_new_collision = 1;
+            		}
+        	} else if (searchY) {
+            		if (orientation ? (centro_y < comparison_value) : (centro_y > comparison_value)) {
+                		comparison_value = centro_y;
+                		is_new_collision = 1;
+            		}
+        	} else if (searchZ) {
+            		if (orientation ? (centro_z < comparison_value) : (centro_z > comparison_value)) {
+                		comparison_value = centro_z;
+                		is_new_collision = 1;
+            		}
+        	}
+        	
+        	if (is_new_collision) {
+            		xColision = centro_x;
+            		yColision = centro_y;
+        	}
+    	}
+    	
+	if (searchX && ((orientation && xColision > estadosrender.w_width) || (!orientation && xColision < 0))) 
+		return;
+	if (searchY && ((orientation && yColision > estadosrender.w_height) || (!orientation && yColision < 0))) 
+		return;
+
+	// Fix orientation
+    	float xRayCoord = -lightCameraDir.unpack.x;
+    	float yRayCoord = lightCameraDir.unpack.y; 
+
+	// Normalize the mag of the ray
+    	float mag = sqrtf(xRayCoord * xRayCoord + yRayCoord * yRayCoord);
+    	
+	// Parchazo
+    	if (mag > 0.000001f) { 
+        	xRayCoord /= mag;
+        	yRayCoord /= mag;
+    	} else if (!searchZ) {
+        	return; 
+    	}
+
+    	const float rayLenght = 500.0f; 
+    
+    	float xStart = xColision + xRayCoord * rayLenght;
+    	float yStart = yColision + yRayCoord * rayLenght;
+    
+	// Draw Ray
+    	uint32_t rayColor = 0xFFFF00FF;
+
+    	draw_linea((int)round(xStart), (int)round(yStart),
+               	(int)round(xColision), (int)round(yColision),
+               	rayColor);
+}

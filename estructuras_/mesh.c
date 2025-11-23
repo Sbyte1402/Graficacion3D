@@ -13,7 +13,7 @@ Mesh loadMesh(const char *filePath, MeshOpciones opt){
 			continue;
 
 		// Vertices
-		if ((renglon[0] == 'v' && renglon[1] == ' ') & ((opt & VERTICES) == VERTICES)) {
+		if ((renglon[0] == 'v' && renglon[1] == ' ') && ((opt & VERTICES) == VERTICES)) {
 			printf("Procesando vertice\n");
 
 			Vec3 vertice = {{0}};
@@ -32,10 +32,20 @@ Mesh loadMesh(const char *filePath, MeshOpciones opt){
 				&vertice_id.b, &textura_id.b, &normal_id.b,
 				&vertice_id.c, &textura_id.c, &normal_id.c);
 
+			// UV
+			vertice_id.a_uv = nuevo.texturaUV[textura_id.a - 1];
+			vertice_id.b_uv = nuevo.texturaUV[textura_id.b - 1];
+			vertice_id.c_uv = nuevo.texturaUV[textura_id.c - 1];
+
 			pushto_array(nuevo.indices, vertice_id);
+			pushto_array(nuevo.n_indices, normal_id);
+		} else if ((renglon[0] == 'v' && renglon[1] == 't') && ((opt & UV ) == UV)){
+			TexturaUV uv = {0};
+			sscanf(renglon + 2, "%f %f", &uv.u, &uv.v);
+			pushto_array(nuevo.texturaUV, uv);
 		}
 	}
-	nuevo.escala = (Vec3){{1.f, 1.f, 1.f}};
+	nuevo.escala   = (Vec3){{1.f, 1.f, 1.f}};
 	nuevo.rotacion = (Vec3){{0.f, 0.f, 0.f}};
 	nuevo.traslado = (Vec3){{0.f, 0.f, 0.f}};
 

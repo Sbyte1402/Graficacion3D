@@ -2,14 +2,9 @@
 #include "figuras.h"
 #include "../global.h"
 #include "../estructuras/pila.h"
-#include "../memoria/memoria.h"
-#include "stdio.h"
 
 #include <stdlib.h>
 
-void fill_flat_bottom(Vec3 p1,Vec3 p2, Vec3 p3, uint32_t color);
-void fill_flat_top(Vec3 p1,Vec3 p2, Vec3 p3, uint32_t color);
-void ordenar_y(Vec3 *y);
 uint32_t getColor(Vec2 *pixel);
 
 void fill_figura(void *figura, uint32_t fill_color){
@@ -33,7 +28,10 @@ void fill_figura(void *figura, uint32_t fill_color){
             break;}
         case TRIAN:{
             Triangulo *trianCast = (Triangulo*)figuraCast;
-            fill_triangulo(trianCast, fill_color);
+            fill_triangulo(trianCast -> pos[0],
+			   trianCast -> pos[1],
+			   trianCast -> pos[2],
+			   fill_color);
             break;}
         case LINEA:
             break;
@@ -88,7 +86,7 @@ void fill_flood(Vec2 *pInicial, uint32_t fill_color){
                         Vec2 *objetivo = malloc(sizeof(Vec2));
                         objetivo->unpack.x = newX;
                         objetivo->unpack.y = newY;
-                        push(pila, objetivo);
+push(pila, objetivo);
                     }
                 }
             }
@@ -101,73 +99,80 @@ void fill_flood(Vec2 *pInicial, uint32_t fill_color){
     free(pila);
 }
 
-void fill_triangulo(Triangulo *triangulo, uint32_t color){
-    // Ordenar
-    float cy, cx;
-    Vec3 y[3];
+void fill_triangulo(Vec4 p1, Vec4 p2, Vec4 p3, uint32_t color){
+	if(p1.unpack.y > p2.unpack.y){
+		swapv4(&p1, &p2);
+	}
 
-    y[0] = triangulo -> pos[0];
-    y[1] = triangulo -> pos[1];
-    y[2] = triangulo -> pos[2];
-    ordenar_y(y);
+	if(p2.unpack.y > p3.unpack.y){
+		swapv4(&p2, &p3);
+	}
 
-    // Pintar
-    if (y[1].unpack.y == y[2].unpack.y) {
-        fill_flat_bottom(y[0], y[1], y[2], color);
-    } else if (y[0].unpack.y == y[1].unpack.y) {
-        fill_flat_top(y[0], y[1], y[2], color);
-    } else {
-        cy = y[1].unpack.y;
-        cx = (y[1].unpack.y - y[0].unpack.y) * (y[2].unpack.x - y[0].unpack.x) / (y[2].unpack.y - y[0].unpack.y) + y[0].unpack.x;
+	if(p1.unpack.y > p2.unpack.y){
+		swapv4(&p1, &p2);
+	}
 
-        Vec3 v = {{cx, cy}};
-        fill_flat_bottom(y[0], y[1], v, color);
-        fill_flat_top(v, y[1], y[2], color);
-    }
-}
+	float m1 = 0;
+	float m2 = 0;
 
-void ordenar_y(Vec3 *y){
-    Vec3 aux;
+	if(p2.unpack.y - p1.unpack.y != 0){
+		m1 = -((float)(p2.unpack.y - p1.unpack.y) / (p1.unpack.x - p2.unpack.x));
+	}
 
-    for(int i = 0; i < 3; i++){
-        for(int j = i + 1; j < 3; j++){
-            if(y[i].unpack.y > y[j].unpack.y){
-                aux = y[i];
-                y[i] = y[j];
-                y[j] = aux;
-            }
-        }
-    }
-}
+	if(p3.unpack.y - p1.unpack.y != 0){
+		m2 = ((float)(p3.unpack.y - p1.unpack.y) / (p3.unpack.x - p1.unpack.x));
+	}
+	
+	if(p2.unpack.y - p1.unpack.y != 0){
+		for(int i = 0; i < (p2.unpack.y - p1.unpack.y); ++i){
+			int xin = p1.unpack.x + (i / m1);
+			int xen = p1.unpack.x + (i / m2);
+			int y = p1.unpack.y + i;
 
-void fill_flat_bottom(Vec3 p2, Vec3 p3, Vec3 c, uint32_t color){
-    float mi = (p3.unpack.x - p2.unpack.x) / (p3.unpack.y - p2.unpack.y);
-    float mf = (c.unpack.x - p2.unpack.x) / (c.unpack.y - p2.unpack.y);
+			if(xen < xin){
+				int temp = xin;
+				xin = xen;
+				xen = temp;
+			}
 
-    float xi = p2.unpack.x;
-    float xf = p2.unpack.x;
+			for(int x = xin; x < xen; x++){
+				draw_trian_pixel(x, y, color, p1, p2, p3);
+			}
+		}
+	}
 
-    for (int y = (int)p2.unpack.y; y <= (int)c.unpack.y; y++) {
-        draw_linea(xi, y, xf, y, color);
-        xi += mi;
-        xf += mf;
-    }
-}
+	m1 = 0;
+	m2 = 0;
 
-void fill_flat_top(Vec3 p1, Vec3 p2 ,Vec3 c, uint32_t color){
-    float mi = (c.unpack.x - p1.unpack.x) / (c.unpack.y - p1.unpack.y);
-    float mf = (c.unpack.x - p2.unpack.x) / (c.unpack.y - p2.unpack.y);
+	if(p3.unpack.y - p2.unpack.y != 0){
+		m1 = -((p3.unpack.y - p2.unpack.y) / (float)(p3.unpack.x - p2.unpack.x));
+	}
 
-    float xi = c.unpack.x;
-    float xf = c.unpack.x;
+	if(p3.unpack.y - p1.unpack.y != 0){
+		m2 = -((p3.unpack.y - p1.unpack.y) / (float)(p3.unpack.x - p1.unpack.x));
+	}
 
-    for (int y = (int)c.unpack.y; y >= (int)p1.unpack.y; y--) {
-        draw_linea(xi, y, xf, y, color);
-        xi -= mi;
-        xf -= mf;
-    }
+	if(p3.unpack.y - p2.unpack.y != 0){
+		for(int i = 0; i <= (p3.unpack.y - p2.unpack.y); i++){
+			int xin = p3.unpack.x + (i / (float)m1);
+			int xen = p3.unpack.x + (i / (float)m2);
+			int y = p3.unpack.y - i;
+
+			if(xen < xin){
+				int temp = xin;
+				xin = xen;
+				xen = temp;
+			}
+
+			for(int x = xin; x < xen; x++){
+				draw_trian_pixel(x, y, color, p1, p2, p3);
+			}
+		}
+	}
 }
 
 uint32_t getColor(Vec2 *pixel){
     return estadosrender.color_buffer[(int)pixel->unpack.y * estadosrender.w_width + (int)pixel->unpack.x];
 }
+
+

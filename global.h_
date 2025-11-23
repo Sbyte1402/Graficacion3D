@@ -7,16 +7,19 @@
 #include "draw/figuras.h"
 
 typedef struct _estado{
-    uint32_t *color_buffer;
     SDL_Event evento;
-    SDL_Renderer *renderer;
     SDL_Texture *texture;
+    SDL_Renderer *renderer;
+
+    float *z_buffer;
+
+    int run;
     int w_width;
     int w_height;
-    Color clear_color;
-    int run;
-    Mesh *meshes;
 
+    Mesh *meshes;
+    Color clear_color;
+    uint32_t *color_buffer;
     // Figuras *figuras_buffer;
     // Figuras *figuras_temp_buffer;
 }EstadoRender;

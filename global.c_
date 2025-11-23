@@ -6,6 +6,7 @@ EstadoRender estadosrender = {.color_buffer = 0,
                               .texture = 0,
                               .w_width = 1080,
                               .w_height = 720,
+			      .z_buffer = 0,
                               .clear_color = {0x070707FF},
                               .run = 1,
 			      .meshes = 0
