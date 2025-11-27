@@ -20,6 +20,7 @@ typedef struct _estado{
     Mesh *meshes;
     Color clear_color;
     uint32_t *color_buffer;
+    float dt;
     // Figuras *figuras_buffer;
     // Figuras *figuras_temp_buffer;
 }EstadoRender;

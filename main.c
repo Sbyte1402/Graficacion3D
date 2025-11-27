@@ -7,7 +7,6 @@
 
 #include "global.h"
 #include "render.h"
-#include "draw/linea.h"
 #include "memoria/memoria.h"
 
 #define FPS 60

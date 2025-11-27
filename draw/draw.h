@@ -30,9 +30,11 @@ void draw_trian_pixel(int x, int y, uint32_t color, Vec4 p1, Vec4 p2, Vec4 p3);
 void tex_trian(Vec4 p1, TexturaUV tuv1,
 	       Vec4 p2, TexturaUV tuv2, 
 	       Vec4 p3, TexturaUV tuv3, 
-	       uint32_t *textura, int tw, int th);
+	       uint32_t *textura, int tw, int th,
+	       float intensidad);
 void draw_textura(int x, int y, 
 		  Vec4 a, Vec4 b, Vec4 c, 
 		  TexturaUV t1, TexturaUV t2, TexturaUV t3, 
-		  uint32_t *textura, int tw, int th);
+		  uint32_t *textura, int tw, int th,
+		  float intensidad);
 

@@ -7,6 +7,7 @@
 #include "color/colores.h"
 #include "estructuras/luz.h"
 #include "memoria/memoria.h"
+#include "estructuras/mesh.h"
 #include "estructuras/camara.h"
 
 #include <stdio.h>
@@ -26,7 +27,7 @@ Vec3 origen = {{0, 0, 0}};
 Vec3 target = {{0, 0, 4}};
 Vec3 arriba = {{0, 1, 0}};
 
-Mat4 view_matrix;
+Mat4 view_matrix = {0};
 
 Vec3 rotaciones;
 Vec3 escalamiento;
@@ -36,10 +37,11 @@ int vertexFlag = 0;
 int fillFlag = 0;
 int backFaceCullingFlag = 0;
 int renderMeshFlag = 0;
+int rayDrawFlag = 0;
 
 const int fovf = 630;
 
-Luz luz = {{{0.f, -1.f, 0.f}}};
+Luz luz = {{{1.f, -1.f, 1.f}}};
 uint32_t *img = 0;
 
 Vec2 *punto_seleccionado = NULL;
@@ -102,12 +104,16 @@ void transformar(void){
 			triangulo_proyectado.pos[2] = vertices_transformados[2];
 			//triangulo_proyectado.avg_z = avg_z;
 
-			triangulo_proyectado.color.hex = estadosrender.meshes[m].textura.pixeles[0];
+	//		triangulo_proyectado.color.hex = estadosrender.meshes[m].textura.pixeles[0];
+			triangulo_proyectado.color.hex = 0xFF0000FF;
 			normal_triangulo(&triangulo_proyectado);
-			float intesidad = -dot_vec3(triangulo_proyectado.normal, luz.direccion);
-			triangulo_proyectado.color.hex = luz_intensidad(triangulo_proyectado.color.hex, intesidad);
+			float intensidad = -dot_vec3(triangulo_proyectado.normal, luz.direccion);
 
-			// Posicion de la luz
+			triangulo_proyectado.intensidad = intensidad;
+			triangulo_proyectado.color.hex = luz_intensidad(triangulo_proyectado.color.hex, intensidad);
+
+			//float intensidadTextura = -dot_vec3(triangulo_proyectado.normal, luz.direccion);
+			//estadosrender.meshes[m].textura = luzIntesidadTextura(estadosrender.meshes[m], intensidadTextura);
 
 			Vec4 punto_proyectado[3];
 
@@ -155,19 +161,19 @@ void render_input(void){
     }
 
     if(estadosrender.evento.key.scancode == SDL_SCANCODE_W){
-	//camara.velocidad_fwd = escala_vec3(&camara.direccion, 1.f * estadosrender.dt);
+	camara.velocidad_fwd = escala_vec3(&camara.direccion, 5.f * estadosrender.dt);
 	camara.posicion = suma_vec3(camara.posicion, camara.velocidad_fwd);
     }
 
     if(estadosrender.evento.key.scancode == SDL_SCANCODE_S){
-	//camara.velocidad_fwd = escala_vec3(&camara.direccion, 1.f * estadosrender.dt);
+	camara.velocidad_fwd = escala_vec3(&camara.direccion, 5.f * estadosrender.dt);
 	camara.posicion = resta_vec3(camara.posicion, camara.velocidad_fwd);
     }
 
     if (estadosrender.evento.key.scancode == SDL_SCANCODE_SPACE && estadosrender.evento.key.mod & SDL_KMOD_SHIFT) {
-	//camara.posicion.unpack.y -= 1.f * estadosrender.dt;
+	camara.posicion.unpack.y -= 5.f * estadosrender.dt;
     } else if (estadosrender.evento.key.scancode == SDL_SCANCODE_SPACE) {
-	//camara.posicion.unpack.y += 1.f * estadosrender.dt;
+	camara.posicion.unpack.y += 5.f * estadosrender.dt;
     }
 
     if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_1){
@@ -188,6 +194,10 @@ void render_input(void){
     
     if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_5){
 	renderMeshFlag = !renderMeshFlag;
+    }
+
+    if(estadosrender.evento.type == SDL_EVENT_KEY_DOWN && estadosrender.evento.key.scancode == SDL_SCANCODE_6){
+	rayDrawFlag = !rayDrawFlag;
     }
 
     //if(estadosrender.evento.type == SDL_EVENT_MOUSE_BUTTON_DOWN){
@@ -252,24 +262,43 @@ void copy_buffer_to_texture(){
 }
 
 void _Init(){
-	camara.posicion.unpack.z = -5.f;
+	camara.posicion.unpack.z = -10.f;
 
 	// Cargar mesh
-	// Mesh cubo = loadMesh("assets/crab.obj", VERTICES | INDICES | UV);
-	Mesh floor = loadMesh("assets/cube.obj", VERTICES | INDICES | UV);
+	Mesh floor = loadMesh("assets/floor.obj", VERTICES | INDICES | UV);
+	Mesh crab = loadMesh("assets/crab.obj", VERTICES | INDICES | UV);
 
-	// pushto_array(estadosrender.meshes, cubo);
-	pushto_array(estadosrender.meshes, floor);
+	pushto_array(estadosrender.meshes, floor);	// estadosrender.meshes[0] = floor
+	pushto_array(estadosrender.meshes, crab);	// estadosrender.meshes[1] = crab
+	
+	// Floor initialization
+	estadosrender.meshes[0].rotacion.unpack.x = -0.140f;
+	estadosrender.meshes[0].rotacion.unpack.y = 0.0f;
+	estadosrender.meshes[0].rotacion.unpack.z = 0.0f;
 
-	estadosrender.meshes[0].rotacion.unpack.x = 0.f;
-	estadosrender.meshes[0].rotacion.unpack.y = 0.f;
-	estadosrender.meshes[0].rotacion.unpack.z = 0.f;
+	estadosrender.meshes[0].traslado.unpack.x = 0.f;
+	estadosrender.meshes[0].traslado.unpack.y = -0.350f;
+	estadosrender.meshes[0].traslado.unpack.z = 8.f;
 
 	estadosrender.meshes[0].escala.unpack.x = 1.f;
 	estadosrender.meshes[0].escala.unpack.y = 1.f;
-	estadosrender.meshes[0].escala.unpack.z = 1.f; 
+	estadosrender.meshes[0].escala.unpack.z = 1.f;
+	//----------------------------------------------------------------
+	// Crab initialization
 	
-	estadosrender.meshes[0].traslado.unpack.z = 10.f;
+	estadosrender.meshes[1].rotacion.unpack.x = -0.140f;
+	estadosrender.meshes[1].rotacion.unpack.y = 0.f;
+	estadosrender.meshes[1].rotacion.unpack.z = 0.f;
+
+	estadosrender.meshes[1].traslado.unpack.x = 0.f;
+	estadosrender.meshes[1].traslado.unpack.y = 0.500f;
+	estadosrender.meshes[1].traslado.unpack.z = 8.f;
+
+	estadosrender.meshes[1].escala.unpack.x = 0.5f;
+	estadosrender.meshes[1].escala.unpack.y = 0.5f;
+	estadosrender.meshes[1].escala.unpack.z = 0.5f; 
+	
+	
 	//En espacio local, crear el cubo
 	// int p = 0;
 	// for(float x = -1; x <= 1; x += 0.25){
@@ -280,18 +309,26 @@ void _Init(){
 	//		}
 	//	}
 	//}
+	
 	int imgx, imgy, imgcomp;
-	estadosrender.meshes[0].textura.pixeles = cargar_imagen("assets/crab.png", &imgx, &imgy, &imgcomp, 4);
-	printf("(%d, %d, %d)\n", imgx, imgy, imgcomp);
-
+	//estadosrender.meshes[0].textura.pixeles = cargar_imagen("assets/dirt.jpg", &imgx, &imgy, &imgcomp, 4);
+	estadosrender.meshes[0].textura.pixeles = cargar_imagen("assets/water.jpg", &imgx, &imgy, &imgcomp, 4);
 	estadosrender.meshes[0].textura.width = imgx;
 	estadosrender.meshes[0].textura.height = imgy;
+	printf("(%d, %d, %d)\n", imgx, imgy, imgcomp);
+	
+	
+	int imgx2, imgy2, imgcomp2;
+	estadosrender.meshes[1].textura.pixeles = cargar_imagen("assets/crab.png", &imgx2, &imgy2, &imgcomp2, 4);
+	estadosrender.meshes[1].textura.width = imgx2;
+	estadosrender.meshes[1].textura.height = imgy2;
+	printf("(%d, %d, %d)\n", imgx2, imgy2, imgcomp2);
+	
 }
 
 void update(){
-	estadosrender.meshes[0].rotacion.unpack.x += 0.001f;
-	estadosrender.meshes[0].rotacion.unpack.y += 0.001f;
-	estadosrender.meshes[0].rotacion.unpack.z += 0.001f;
+	//estadosrender.meshes[0].rotacion.unpack.y += 0.002f;
+	estadosrender.meshes[1].rotacion.unpack.y += 0.002f;
 
 	transformar();
 }
@@ -331,12 +368,15 @@ void render_frame(){
 					  trian.pos[2], trian.texUV[2],
 					  estadosrender.meshes[m].textura.pixeles,
 					  estadosrender.meshes[m].textura.width,
-					  estadosrender.meshes[m].textura.height);
+					  estadosrender.meshes[m].textura.height,
+					  trian.intensidad);
 			}
 		}
 	}
+	if(rayDrawFlag)
 		drawLightRay();
-		SDL_RenderPresent(estadosrender.renderer);
+
+	SDL_RenderPresent(estadosrender.renderer);
 }
 
 int back_face_culling(Vec3 camara, Vec4 *puntos){
@@ -394,7 +434,7 @@ void drawLightRay(void){
         	orientation = (lightCameraDir.unpack.z < 0);
     	}
 
-	// --- 2. ENCONTRAR PUNTO DE COLISIÓN (PUNTO FINAL) ---
+	// Find collision point
     	float xColision = 0;
     	float yColision = 0;
 
@@ -416,10 +456,11 @@ void drawLightRay(void){
     	}
     	
 	// Get many triangles in the mesh
-    	int num_trian = array_size(estadosrender.meshes[0].triangulos);
+	for(int m = 0; m < array_size(estadosrender.meshes); m++){
+    	int num_trian = array_size(estadosrender.meshes[m].triangulos);
     	for(int i = 0; i < num_trian; i++){
 		// First triangle
-        	Triangulo trian = estadosrender.meshes[0].triangulos[i];
+        	Triangulo trian = estadosrender.meshes[m].triangulos[i];
         	
         	// Calculate centroids
         	float centro_x = (trian.pos[0].unpack.x + trian.pos[1].unpack.x + trian.pos[2].unpack.x) / 3.0f;
@@ -450,7 +491,7 @@ void drawLightRay(void){
             		yColision = centro_y;
         	}
     	}
-    	
+	} // <-
 	if (searchX && ((orientation && xColision > estadosrender.w_width) || (!orientation && xColision < 0))) 
 		return;
 	if (searchY && ((orientation && yColision > estadosrender.w_height) || (!orientation && yColision < 0))) 

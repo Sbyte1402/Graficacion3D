@@ -9,7 +9,8 @@ EstadoRender estadosrender = {.color_buffer = 0,
 			      .z_buffer = 0,
                               .clear_color = {0x070707FF},
                               .run = 1,
-			      .meshes = 0
+			      .meshes = 0,
+			      .dt = 0
                               //.figuras_buffer = 0,
 			      //.figuras_temp_buffer = 0
 			      };

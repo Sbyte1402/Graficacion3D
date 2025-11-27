@@ -65,6 +65,8 @@ typedef struct _triangulo{
 	Color color;
 	Vec3 normal;
 	TexturaUV texUV[3];
+
+	float intensidad;
 }Triangulo;
 
 typedef union  _figuras{

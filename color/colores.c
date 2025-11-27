@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stb_image.h>
 
-#define ARGB_TO_TGBA(r, g, b, a)((uint32_t)((r << 24) | (g << 16) | (b << 8) || (a)))
+#define ARGB_TO_RGBA(r, g, b, a)((uint32_t)((r << 24) | (g << 16) | (b << 8) | (a)))
 
 Color lerp_color(Color a, Color b, float t){
     Color nuevo;
@@ -17,7 +17,7 @@ Color lerp_color(Color a, Color b, float t){
     return nuevo;
 }
 
-uint32_t *cargar_imagen(const char *path, int *x, int *y, int *c, int n){
+uint32_t* cargar_imagen(const char *path, int *x, int *y, int *c, int n){
 	unsigned char *data = stbi_load(path, x, y, c, n);
 
 	if(!data){
@@ -27,14 +27,15 @@ uint32_t *cargar_imagen(const char *path, int *x, int *y, int *c, int n){
 
 	uint32_t *img = (uint32_t*)data;
 
-	if(*c == 3 && n == 4){
+	//if(*c == 3 && n == 4)
+	{
 		for(int i = 0; i < *x * *y; ++i){
 			uint8_t a = (img[i] & 0xFF000000) >> 24;
 			uint8_t b = (img[i] & 0x00FF0000) >> 16;
 			uint8_t g = (img[i] & 0x0000FF00) >> 8;
 			uint8_t r = (img[i] & 0x000000FF);
 
-			img[i] = ARGB_TO_TGBA(r, g, b, a);
+			img[i] = ARGB_TO_RGBA(r, g, b, a);
 		}
 	}
 
